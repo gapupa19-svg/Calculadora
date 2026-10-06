@@ -1,0 +1,569 @@
+<title>Calculadora de Heparinas</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Young+Serif&family=Schibsted+Grotesk:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap">
+<style>
+/* Layout: cabecera con la rejilla de puntos pastel; selector principal HBPM / HNF en dos fichas grandes; ficha de paciente común; debajo, solo la sección elegida.
+   Paleta tomada de la carta "pastel": cada fármaco tiene su color (lavanda, cielo, rosa, salvia, melocotón). */
+:root{
+  --bg:#f6f3ec; --surface:#fdfcf8; --ink:#2d2a3a; --muted:#6c6680; --line:#ece7f0;
+  --lemon:#f3efc4; --peach:#f2d5b4; --salmon:#e8b4a8; --pink:#e8b9c3; --lilac:#dfbcd6;
+  --lav:#c9b2d4; --peri:#aba9cf; --blue:#a9bcdd; --sky:#b3d2e6; --mint:#b4d5cf; --sage:#b3d1bb; --celadon:#d3e2c2;
+  --lav-soft:#f1e9f6; --lav-ink:#4b3a63;
+  --sky-soft:#e7f2f9; --sky-ink:#244a63;
+  --pink-soft:#fae9ee; --pink-ink:#6b2e3c;
+  --sage-soft:#e7f3ea; --sage-ink:#2c5638;
+  --peach-soft:#fcf0e3; --peach-ink:#6b4320;
+  --accent:#7d68a6; --accent-ink:#ffffff; --accent-soft:#f1e9f6;
+  --ok:#2c6b3f; --ok-bg:#dff0e3; --warn:#8a4a10; --warn-bg:#fbe8d2; --crit:#9b2c22; --crit-bg:#f8dcd6; --info-bg:#e7f2f9; --info:#3d6a8a;
+  color-scheme:light;
+  --f-disp:"Young Serif",Georgia,"Times New Roman",serif;
+  --f-ui:"Schibsted Grotesk",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-num:"JetBrains Mono",ui-monospace,"SFMono-Regular",Menlo,monospace;
+}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-ui);font-size:15px;line-height:1.45;padding-inline:16px;padding-block:20px 48px}
+.wrap{max-width:1000px;margin:0 auto;display:flex;flex-direction:column;gap:18px}
+
+/* cabecera */
+header{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
+header h1{margin:0;font-family:var(--f-disp);font-weight:400;font-size:clamp(1.7rem,5vw,2.4rem);line-height:1.05;letter-spacing:-.01em;text-wrap:balance}
+header p{margin:6px 0 0;color:var(--muted);font-size:.9rem;max-width:60ch}
+.dots{display:grid;grid-template-columns:repeat(6,14px);gap:6px;flex:none}
+.dots i{width:14px;height:14px;border-radius:50%;display:block}
+
+/* selector principal */
+.picker{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,280px),1fr));gap:14px}
+.pick{position:relative;overflow:hidden;text-align:left;font:inherit;color:var(--ink);cursor:pointer;border-radius:18px;padding:18px 18px 18px 90px;min-height:104px;border:2px solid transparent;display:flex;flex-direction:column;justify-content:center;gap:2px;transition:transform .15s,border-color .15s}
+.pick::before{content:"";position:absolute;left:18px;top:50%;width:56px;height:56px;margin-top:-28px;border-radius:50%;background:var(--c)}
+.pick::after{content:"";position:absolute;right:-26px;bottom:-26px;width:90px;height:90px;border-radius:50%;background:var(--c);opacity:.45}
+.pick .k{font-family:var(--f-disp);font-size:1.25rem;line-height:1.15;position:relative}
+.pick .d{font-size:.84rem;color:var(--muted);position:relative}
+.pick .abbr{position:absolute;left:18px;top:50%;width:56px;margin-top:-10px;text-align:center;font-weight:800;font-size:.9rem;letter-spacing:.02em;color:#2d2a3a}
+.pick.hbpm{--c:var(--lav);background:var(--lav-soft)}
+.pick.hnf{--c:var(--peach);background:var(--peach-soft)}
+.pick[aria-selected="true"]{border-color:var(--c);box-shadow:0 6px 18px -10px var(--c)}
+.pick[aria-selected="true"] .k::after{content:" ✓";font-family:var(--f-ui);font-weight:800;font-size:1rem}
+.pick[aria-selected="false"]{opacity:.72}
+@media (hover:hover){.pick:hover{transform:translateY(-2px);opacity:1}}
+
+/* paneles */
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:14px}
+.panel.pac{border-top:6px solid var(--sky)}
+.panel.hbpmSec{border-top:6px solid var(--lav)}
+.panel.hnfSec{border-top:6px solid var(--peach)}
+.sectitle{font-family:var(--f-disp);font-size:1.25rem;margin:0}
+.label{font-size:.72rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-weight:700;display:flex;align-items:center;gap:8px}
+.label::before{content:"";width:10px;height:10px;border-radius:50%;background:var(--dot,var(--lav));flex:none}
+.hnfSec .label{--dot:var(--salmon)}
+.pac .label{--dot:var(--sky)}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:12px}
+.field{display:flex;flex-direction:column;gap:4px;min-width:0}
+.field label,.field .flabel{font-size:.82rem;font-weight:600}
+input,select{font:inherit;font-family:var(--f-num);font-size:1rem;color:var(--ink);background:var(--bg);border:1.5px solid var(--line);border-radius:10px;padding:9px 10px;width:100%;min-width:0}
+select{font-family:var(--f-ui)}
+input:focus-visible,select:focus-visible,button:focus-visible,summary:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.seg{display:flex;border:1.5px solid var(--line);border-radius:999px;overflow:hidden;flex-wrap:wrap;background:var(--bg)}
+.seg button{flex:1;font:inherit;font-size:.88rem;background:transparent;color:var(--ink);border:0;padding:9px 12px;cursor:pointer;white-space:nowrap;border-radius:999px}
+.seg button[aria-pressed="true"]{background:var(--lav);color:#2d2a3a;font-weight:700}
+.pac .seg button[aria-pressed="true"]{background:var(--sky)}
+.hnfSec .seg button[aria-pressed="true"]{background:var(--peach)}
+.controls{display:flex;flex-wrap:wrap;gap:12px}
+.controls .field{flex:1 1 260px}
+.stats{display:flex;flex-wrap:wrap;gap:8px}
+.chip{display:inline-flex;gap:6px;align-items:baseline;padding:5px 12px;border-radius:999px;background:var(--sky-soft);color:var(--sky-ink);font-size:.82rem}
+.chip b{font-family:var(--f-num);font-weight:700}
+.chip.warn{background:var(--warn-bg);color:var(--warn)} .chip.crit{background:var(--crit-bg);color:var(--crit)}
+
+/* tarjetas por fármaco */
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,440px),1fr));gap:16px}
+.card{border:1px solid var(--line);border-radius:16px;background:var(--surface);overflow:hidden;display:flex;flex-direction:column;min-width:0;--c:var(--lav);--cs:var(--lav-soft);--ci:var(--lav-ink)}
+.card.c-sky{--c:var(--sky);--cs:var(--sky-soft);--ci:var(--sky-ink)}
+.card.c-pink{--c:var(--pink);--cs:var(--pink-soft);--ci:var(--pink-ink)}
+.card.c-sage{--c:var(--sage);--cs:var(--sage-soft);--ci:var(--sage-ink)}
+.card.c-peach{--c:var(--peach);--cs:var(--peach-soft);--ci:var(--peach-ink)}
+.card .head{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;padding:12px 16px;background:var(--cs);color:var(--ci)}
+.card h2{margin:0;font-family:var(--f-disp);font-weight:400;font-size:1.2rem;display:flex;align-items:center;gap:10px}
+.card h2::before{content:"";width:16px;height:16px;border-radius:50%;background:var(--c);flex:none}
+.card .brand{font-size:.8rem;opacity:.85}
+.card .body{padding:14px 16px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.target{display:flex;flex-direction:column;gap:2px}
+.target .big{font-family:var(--f-num);font-size:1.6rem;font-weight:700;letter-spacing:-.02em;line-height:1.1}
+.target .big small{font-size:.9rem;font-weight:500;color:var(--muted)}
+.target .how{font-size:.85rem;color:var(--muted)}
+.tablewrap{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:.86rem;font-variant-numeric:tabular-nums}
+th,td{text-align:left;padding:7px 6px;border-bottom:1px solid var(--line);white-space:nowrap}
+th{font-size:.68rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:700}
+td.n{font-family:var(--f-num)}
+tr.best td{background:var(--cs,var(--accent-soft))}
+.hnfSec tr.best td{background:var(--peach-soft)}
+tr.best td:first-child{font-weight:700}
+.tag{display:inline-block;font-size:.64rem;font-weight:800;text-transform:uppercase;letter-spacing:.05em;padding:2px 7px;border-radius:999px;background:var(--c,var(--lav));color:#2d2a3a;margin-left:6px;vertical-align:1px}
+.hnfSec .tag{background:var(--peach)}
+.pct{font-family:var(--f-num);font-weight:700;padding:2px 8px;border-radius:999px}
+.pct.ok{background:var(--ok-bg);color:var(--ok)} .pct.warn{background:var(--warn-bg);color:var(--warn)} .pct.crit{background:var(--crit-bg);color:var(--crit)}
+.bar{position:relative;width:90px;height:8px;background:var(--bg);border-radius:4px}
+.bar::before{content:"";position:absolute;left:50%;top:-2px;bottom:-2px;width:1px;background:var(--muted)}
+.bar i{position:absolute;top:0;bottom:0;border-radius:4px}
+.bar i.ok{background:var(--sage)} .bar i.warn{background:var(--peach)} .bar i.crit{background:var(--salmon)}
+.alerts{display:flex;flex-direction:column;gap:8px}
+.alert{border-left:5px solid var(--peach);background:var(--warn-bg);color:var(--ink);padding:8px 12px;border-radius:0 12px 12px 0;font-size:.85rem}
+.alert.crit{border-color:var(--salmon);background:var(--crit-bg)}
+.alert.ok{border-color:var(--sage);background:var(--ok-bg)}
+.alert.info{border-color:var(--sky);background:var(--info-bg)}
+.legend{display:flex;flex-wrap:wrap;gap:10px;font-size:.8rem;color:var(--muted);align-items:center}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;font-size:.9rem}
+.kv dt{color:var(--muted)} .kv dd{margin:0;font-family:var(--f-num)}
+.pearl{font-size:.82rem;color:var(--muted);margin:0}
+footer{display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center;padding-top:14px;border-top:1px solid var(--line)}
+footer p{margin:0}
+footer .author{font-family:var(--f-disp);font-size:1.05rem;color:var(--ink)}
+footer .author b{font-weight:400;color:var(--lav-ink)}
+footer .disclaimer{font-size:.74rem;color:#8a8597;max-width:62ch}
+.na{font-size:.95rem;font-weight:700;color:var(--crit)}
+@media (prefers-reduced-motion:reduce){.pick{transition:none}.pick:hover{transform:none}}
+</style>
+
+<div class="wrap">
+  <header>
+    <div>
+      <h1>Calculadora de Heparinas</h1>
+      <p>Elige el tipo de heparina, introduce peso y función renal y obtén las dosis ajustadas.</p>
+    </div>
+    <div class="dots" aria-hidden="true">
+      <i style="background:var(--lemon)"></i><i style="background:var(--peach)"></i><i style="background:var(--salmon)"></i><i style="background:var(--pink)"></i><i style="background:var(--lilac)"></i><i style="background:var(--lav)"></i>
+      <i style="background:var(--peri)"></i><i style="background:var(--blue)"></i><i style="background:var(--sky)"></i><i style="background:var(--mint)"></i><i style="background:var(--sage)"></i><i style="background:var(--celadon)"></i>
+    </div>
+  </header>
+
+  <div class="picker" role="tablist" aria-label="Tipo de heparina">
+    <button class="pick hbpm" id="pickH" role="tab" aria-selected="true" aria-controls="secH" type="button">
+      <span class="abbr">HBPM</span>
+      <span class="k">Heparina de bajo peso molecular</span>
+      <span class="d">Enoxaparina, tinzaparina, bemiparina y fondaparinux</span>
+    </button>
+    <button class="pick hnf" id="pickU" role="tab" aria-selected="false" aria-controls="hnf" type="button">
+      <span class="abbr">HNF</span>
+      <span class="k">Heparina no fraccionada</span>
+      <span class="d">Perfusión IV, ajuste por TTPa, protamina</span>
+    </button>
+  </div>
+
+  <section class="panel pac" aria-labelledby="pac">
+    <div class="label" id="pac">Paciente <span style="text-transform:none;letter-spacing:0;font-weight:500">· datos de ejemplo</span></div>
+    <div class="grid">
+      <div class="field"><label for="peso">Peso (kg)</label><input id="peso" type="number" inputmode="decimal" value="75" min="20" max="300"></div>
+      <div class="field"><label for="cr">Creatinina (mg/dL)</label><input id="cr" type="number" inputmode="decimal" value="1.0" step="0.1" min="0.2" max="15"></div>
+      <div class="field"><label for="edad">Edad (años)</label><input id="edad" type="number" inputmode="numeric" value="65" min="18" max="110"></div>
+      <div class="field"><label for="talla">Talla (cm)</label><input id="talla" type="number" inputmode="decimal" value="172" min="100" max="230"></div>
+      <div class="field"><span class="flabel">Sexo</span>
+        <div class="seg" role="group" aria-label="Sexo"><button id="sexV" type="button" aria-pressed="true">Varón</button><button id="sexM" type="button" aria-pressed="false">Mujer</button></div>
+      </div>
+      <div class="field"><label for="clcrMan">ClCr manual (opcional)</label><input id="clcrMan" type="number" inputmode="decimal" placeholder="mL/min" min="0" max="250"></div>
+    </div>
+    <div class="stats" id="stats"></div>
+    <div class="alerts" id="gAlerts"></div>
+  </section>
+
+  <div id="secH" role="tabpanel" aria-labelledby="pickH" style="display:flex;flex-direction:column;gap:16px">
+    <section class="panel hbpmSec">
+      <h2 class="sectitle">Heparina de bajo peso molecular</h2>
+      <div class="controls">
+        <div class="field"><span class="flabel">Indicación</span>
+          <div class="seg" role="group" aria-label="Indicación" id="indSeg">
+            <button type="button" data-v="trat" aria-pressed="true">Tratamiento</button>
+            <button type="button" data-v="prof" aria-pressed="false">Profilaxis</button>
+          </div></div>
+      </div>
+      <div class="legend" id="legend">
+        <span>Desviación frente a la dosis exacta por kg:</span>
+        <span class="pct ok">±10%</span><span class="pct warn">10-20%</span><span class="pct crit">&gt;20%</span>
+      </div>
+    </section>
+    <div class="cards" id="cards"></div>
+  </div>
+
+  <section class="panel hnfSec" id="hnf" role="tabpanel" aria-labelledby="pickU" hidden>
+    <h2 class="sectitle">Heparina no fraccionada</h2>
+    <div class="alerts" id="uWhy"></div>
+
+    <div class="label">1 · Inicio de la perfusión IV</div>
+    <div class="grid">
+      <div class="field"><label for="uInd">Nomograma</label>
+        <select id="uInd">
+          <option value="hcuva" selected>Protocolo HCUVA (Arrixaca)</option>
+          <option value="tev">ETEV (Raschke): bolo + perfusión</option>
+          <option value="sca">SCA / FA / válvula: dosis baja</option>
+          <option value="hem">Alto riesgo hemorrágico: sin bolo</option>
+        </select></div>
+      <div class="field"><label for="uConc">Dilución</label>
+        <select id="uConc"><option value="50" selected>25.000 UI / 500 mL SSF 0,9% (50 UI/mL)</option><option value="100">25.000 UI / 250 mL (100 UI/mL)</option></select></div>
+      <div class="field" id="hcDoseF"><label for="hcDose">Dosis (protocolo HCUVA)</label>
+        <select id="hcDose"><option value="auto">Automática por edad y ClCr</option><option value="plena">Plena: 500 UI/kg/día</option><option value="media">Media: 300 UI/kg/día</option></select></div>
+    </div>
+    <div id="uStart"></div>
+    <div id="uHcuva"></div>
+    <div class="alerts" id="uStartAl"></div>
+
+    <div class="label">2 · Ajuste de la perfusión</div>
+    <div class="grid">
+      <div class="field"><span class="flabel">Control con</span>
+        <div class="seg" role="group" aria-label="Control" id="monSeg">
+          <button type="button" data-v="ttpa" aria-pressed="true">Ratio TTPa</button>
+          <button type="button" data-v="axa" aria-pressed="false">Anti-Xa</button>
+        </div></div>
+      <div class="field"><label for="ratio" id="ratioLbl">Ratio TTPa</label><input id="ratio" type="number" inputmode="decimal" step="0.05" value="1.4" min="0" max="10"></div>
+      <div class="field"><label for="ritmo">Ritmo actual (UI/h)</label><input id="ritmo" type="number" inputmode="numeric" value="1350" min="0" max="5000"></div>
+    </div>
+    <div class="alerts" id="uAdj"></div>
+    <div class="tablewrap"><table id="uTable"></table></div>
+    <p class="pearl" id="uTableNote"></p>
+
+    <div class="label">3 · Profilaxis subcutánea</div>
+    <dl class="kv" id="uProf"></dl>
+
+    <div class="label">4 · Reversión con protamina</div>
+    <div class="grid">
+      <div class="field"><label for="pRitmo">Ritmo de HNF (UI/h)</label><input id="pRitmo" type="number" inputmode="numeric" value="1350" min="0" max="5000"></div>
+      <div class="field"><label for="pBolo">Bolo en las últimas 2 h (UI)</label><input id="pBolo" type="number" inputmode="numeric" value="0" min="0" max="20000"></div>
+      <div class="field"><label for="pMin">Minutos desde la suspensión</label><input id="pMin" type="number" inputmode="numeric" value="0" min="0" max="600"></div>
+    </div>
+    <div id="uProt"></div>
+
+    <div class="label">5 · Cambios de anticoagulante y procedimientos</div>
+    <div class="tablewrap"><table id="uSwitch"></table></div>
+
+    <div class="label">6 · Vigilancia</div>
+    <div class="alerts" id="uVig"></div>
+  </section>
+
+  <footer>
+    <p class="author">Elaborado por <b>Gabriel Puche Palao</b></p>
+    <p class="disclaimer">Herramienta de uso personal. No sustituye el juicio clínico: sigue siempre tu criterio clínico y revisa las dosis según el protocolo de tu hospital.</p>
+    <p class="disclaimer">Dosis según fichas técnicas (AEMPS) y guías ACCP/CHEST, ESC e ISTH. Presentaciones comerciales habituales en España: comprueba disponibilidad en tu hospital. ClCr por Cockcroft-Gault con peso real, salvo que introduzcas uno manual.</p>
+  </footer>
+</div>
+
+<script>
+(function(){
+const $=id=>document.getElementById(id);
+let sexo="V", ind="trat";
+const fmt=(n,d=0)=>Number(n).toLocaleString("es-ES",{minimumFractionDigits:d,maximumFractionDigits:d});
+const num=id=>parseFloat(String($(id).value).replace(",","."));
+
+function pat(){
+  const p=num("peso"),t=num("talla"),e=num("edad"),cr=num("cr"),man=num("clcrMan");
+  let clcr=NaN,imc=NaN;
+  if(isFinite(man)&&man>=0) clcr=man;
+  else if(p>0&&e>0&&cr>0) clcr=((140-e)*p)/(72*cr)*(sexo==="M"?0.85:1);
+  if(p>0&&t>0) imc=p/((t/100)**2);
+  return {p,t,e,cr,clcr,imc,manual:isFinite(man)};
+}
+
+const cls=d=>{const a=Math.abs(d);return a<=10?"ok":a<=20?"warn":"crit";};
+const pctTxt=d=>(d>0?"+":d<0?"−":"±")+fmt(Math.abs(d),1)+"%";
+function bar(d){const c=Math.max(-50,Math.min(50,d)),w=Math.abs(c)/50*45;const left=c<0?50-w:50;return `<span class="bar" aria-hidden="true"><i class="${cls(d)}" style="left:${left}px;width:${Math.max(w,1.5)}px"></i></span>`;}
+
+/* filas de presentaciones: [{label, amount, unitPerKg}] frente a dosis exacta */
+function table(rows,exact,P,unit,perKgUnit,perKgDec){
+  let best=0,bd=Infinity;
+  rows.forEach((r,i)=>{r.d=(r.amt-exact)/exact*100;if(Math.abs(r.d)<bd){bd=Math.abs(r.d);best=i;}});
+  return `<div class="tablewrap"><table><thead><tr><th>Presentación</th><th>${perKgUnit}</th><th>Desviación</th><th></th></tr></thead><tbody>`+
+  rows.map((r,i)=>`<tr class="${i===best?"best":""}"><td>${r.label}${i===best?'<span class="tag">más próxima</span>':""}${r.note?`<div class="pearl">${r.note}</div>`:""}</td><td class="n">${fmt(r.amt/P.p,perKgDec)}</td><td><span class="pct ${cls(r.d)}">${pctTxt(r.d)}</span></td><td>${bar(r.d)}</td></tr>`).join("")+
+  `</tbody></table></div>`;
+}
+const near=(list,exact)=>list.filter(a=>a>=exact*0.5&&a<=exact*1.8);
+const alertHTML=a=>a.map(([c,t])=>`<div class="alert ${c}">${t}</div>`).join("");
+
+const CCOL={Enoxaparina:"c-lav",Tinzaparina:"c-sky",Bemiparina:"c-pink",Fondaparinux:"c-sage"};
+function card(name,brand,inner,alerts){
+  return `<article class="card ${CCOL[name]||""}"><div class="head"><h2>${name}</h2><span class="brand">${brand}</span></div><div class="body">${inner}${alerts&&alerts.length?`<div class="alerts">${alertHTML(alerts)}</div>`:""}</div></article>`;
+}
+function target(big,how){return `<div class="target"><div class="big">${big}</div><div class="how">${how}</div></div>`;}
+
+/* ---------- ENOXAPARINA ---------- */
+function enox(P){
+  const r=P.clcr, al=[];
+  if(ind!=="trat"){
+    let mg=40, freq="cada 24 h", how;
+    const imc=P.imc;
+    if(r<30){
+      if(imc>=40){mg=40;al.push(["warn",`ClCr <30 mL/min con IMC ${fmt(imc,1)}: 40 mg/24 h y anti-Xa a las 4 h tras la 3.ª dosis (objetivo 0,2-0,5 UI/mL).`]);how="IR grave con obesidad";}
+      else {mg=20;al.push(["warn","ClCr <30 mL/min: 20 mg/24 h."]);how="Ajuste por ClCr <30";}
+    } else if(imc>50){mg=60;freq="cada 12 h";how=`Obesidad: IMC ${fmt(imc,1)} (>50)`;al.push(["warn","IMC >50: 60 mg cada 12 h. Valorar anti-Xa a las 4 h tras la 3.ª dosis (objetivo 0,2-0,5 UI/mL)."]);}
+    else if(imc>=40){mg=40;freq="cada 12 h";how=`Obesidad: IMC ${fmt(imc,1)} (≥40)`;al.push(["warn","IMC ≥40: 40 mg cada 12 h."]);}
+    else how="Dosis estándar";
+    if(!isFinite(imc)) al.push(["info","Sin talla no se calcula el IMC: si es ≥40 la dosis sube a 40 mg/12 h y si es >50, a 60 mg/12 h."]);
+    if(P.p<50&&r>=30) al.push(["info","Peso <50 kg: algunos protocolos usan 20 mg/24 h o 0,5 mg/kg."]);
+    return card("Enoxaparina","Clexane · Inhixa · biosimilares",target(`${mg} mg <small>${freq}</small>`,`${how} · jeringa de ${mg} mg · ${fmt(mg*(freq==="cada 12 h"?2:1))} mg/día`),al);
+  }
+  let mgkg=1, freq="cada 12 h";
+  if(r<15) al.push(["crit","ClCr <15 mL/min o diálisis: no recomendada. Usar HNF."]);
+  if(r<30){mgkg=1;freq="cada 24 h";al.push(["crit","ClCr <30 mL/min: 1 mg/kg cada 24 h. Anti-Xa a las 4 h (objetivo 1,0-2,0 UI/mL)."]);}
+  const exact=P.p*mgkg;
+  const pres=[[20,100],[40,100],[60,100],[80,100],[100,100],[120,150],[150,150]];
+  const rows=near(pres.map(x=>x[0]),exact).map(a=>({label:`${a} mg`,amt:a}));
+  const purge=Math.round(exact/10)*10, syr=pres.find(x=>x[0]>=purge&&x[0]>=60);
+  if(syr&&purge!==syr[0]&&!rows.some(x=>x.amt===purge)) rows.push({label:`${purge} mg purgando`,amt:purge,note:`Jeringa graduada de ${syr[0]} mg (${fmt(purge/syr[1],2)} mL)`});
+  rows.sort((a,b)=>a.amt-b.amt);
+  const inner=target(`${fmt(exact,1)} mg <small>${freq}</small>`,`${fmt(mgkg,1)} mg/kg × ${fmt(P.p)} kg · anti-Xa ${mgkg===1&&r>=30?"0,6-1,0":"1,0-2,0"} UI/mL`)+table(rows,exact,P,"mg","mg/kg real",2);
+  return card("Enoxaparina","Clexane · Inhixa · biosimilares",inner,al);
+}
+
+/* ---------- TINZAPARINA ---------- */
+function tinza(P){
+  const r=P.clcr, al=[];
+  if(ind!=="trat"){
+    const ui=4500;
+    if(P.p>100) al.push(["info",`Alternativa por peso: 50 UI/kg = ${fmt(Math.round(P.p*50/500)*500)} UI/24 h.`]);
+    if(r<20) al.push(["warn","ClCr <20: precaución; valorar anti-Xa."]);
+    return card("Tinzaparina","Innohep",target(`${fmt(ui)} UI <small>cada 24 h</small>`,`${fmt(ui/P.p)} UI/kg · jeringa de ${fmt(ui)} UI`),al);
+  }
+  if(r<20) al.push(["warn","ClCr <20 mL/min: sin datos suficientes; usar con precaución y anti-Xa (objetivo 0,85-1,0 UI/mL a las 4-6 h)."]);
+  else if(r<30) al.push(["ok","ClCr 20-30: sin ajuste. No se acumula por encima de ClCr 20; útil en ancianos con IR."]);
+  const exact=P.p*175;
+  const all=[10000,14000,18000];
+  let list=near(all,exact);
+  if(!list.length) list=[all.reduce((b,a)=>Math.abs(a-exact)<Math.abs(b-exact)?a:b)];
+  const rows=list.map(a=>({label:`${fmt(a)} UI`,amt:a,note:`Jeringa completa · ${fmt(a/20000,1)} mL`}));
+  if(exact>18000*1.1) al.push(["warn","Dosis por encima de la jeringa de 18.000 UI: usar dos jeringas completas cuya suma se acerque a la dosis calculada."]);
+  if(exact<10000*0.9) al.push(["warn","Dosis por debajo de la jeringa de 10.000 UI: valorar otra HBPM con presentación más ajustada al peso."]);
+  const inner=target(`${fmt(exact)} UI <small>cada 24 h</small>`,`175 UI/kg × ${fmt(P.p)} kg`)+table(rows,exact,P,"UI","UI/kg real",0);
+  return card("Tinzaparina","Innohep",inner,al);
+}
+
+/* ---------- BEMIPARINA ---------- */
+function bemi(P){
+  const r=P.clcr, al=[];
+  if(ind!=="trat"){
+    let ui=3500;
+    if(r<30){ui=2500;al.push(["warn","ClCr <30 mL/min: 2.500 UI/24 h."]);}
+    return card("Bemiparina","Hibor",target(`${fmt(ui)} UI <small>cada 24 h</small>`,`${fmt(ui/P.p)} UI/kg · jeringa de ${fmt(ui)} UI`),al);
+  }
+  let perKg=115, how;
+  let ft;
+  if(r<30){perKg=85;al.push(["crit","ClCr <30 mL/min: 85 UI/kg/24 h (ficha técnica). Valorar anti-Xa."]);}
+  else{
+    ft=P.p<50?5000:P.p<=70?7500:P.p<=100?10000:null;
+    if(ft) al.push(["info",`Tramo de ficha técnica para ${fmt(P.p)} kg: ${fmt(ft)} UI/24 h.`]);
+  }
+  const exact=P.p*perKg;
+  how=`${perKg} UI/kg × ${fmt(P.p)} kg`;
+  const rows=near([5000,7500,10000,12500],exact).map(a=>({label:`${fmt(a)} UI${a===ft?" · ficha técnica":""}`,amt:a,note:`${fmt(a/25000,1)} mL (25.000 UI/mL)`}));
+  if(P.p>100&&r>=30) al.push(["info","Peso >100 kg: 115 UI/kg/24 h calculado sobre peso real."]);
+  const inner=target(`${fmt(exact)} UI <small>cada 24 h</small>`,how)+table(rows,exact,P,"UI","UI/kg real",0);
+  return card("Bemiparina","Hibor",inner,al);
+}
+
+/* ---------- FONDAPARINUX ---------- */
+function fonda(P){
+  const r=P.clcr, al=[];
+  if(ind!=="trat"){
+    if(r<20) return card("Fondaparinux","Arixtra",`<div class="na">Contraindicado con ClCr &lt;20 mL/min</div>`,[["info","Usar HBPM ajustada o HNF."]]);
+    const mg=r<50?1.5:2.5;
+    if(r<50) al.push(["warn","ClCr 20-50 mL/min: 1,5 mg/24 h."]);
+    return card("Fondaparinux","Arixtra",target(`${fmt(mg,1)} mg <small>cada 24 h</small>`,`${fmt(mg/P.p,3)} mg/kg · jeringa de ${fmt(mg,1)} mg`),al);
+  }
+  if(r<30) return card("Fondaparinux","Arixtra",`<div class="na">Contraindicado en tratamiento con ClCr &lt;30 mL/min</div>`,[["info","Eliminación renal exclusiva y vida media de 17-21 h. Usar HNF o HBPM ajustada."]]);
+  const ft=P.p<50?5:P.p<=100?7.5:10;
+  if(P.p>100&&r<50) al.push(["warn","Peso >100 kg con ClCr 30-50: tras 10 mg iniciales, valorar bajar a 7,5 mg/24 h."]);
+  al.push(["info","Ficha técnica: dosis por tramos (<50 kg 5 mg; 50-100 kg 7,5 mg; >100 kg 10 mg), unos 0,1 mg/kg. La desviación se calcula frente a 0,1 mg/kg."]);
+  const exact=P.p*0.1;
+  const rows=[5,7.5,10].map(a=>({label:`${fmt(a,1)} mg${a===ft?" · ficha técnica":""}`,amt:a}));
+  const inner=target(`${fmt(ft,1)} mg <small>cada 24 h</small>`,`Tramo de peso ${P.p<50?"<50":P.p<=100?"50-100":">100"} kg · referencia 0,1 mg/kg = ${fmt(exact,2)} mg`)+table(rows,exact,P,"mg","mg/kg real",3);
+  return card("Fondaparinux","Arixtra",inner,al);
+}
+
+/* ---------- global ---------- */
+function stats(P){
+  const c=[];
+  if(isFinite(P.clcr)){const k=P.clcr<30?"crit":P.clcr<50?"warn":"";c.push(`<span class="chip ${k}">ClCr${P.manual?" (manual)":""} <b>${fmt(P.clcr)}</b> mL/min</span>`);}
+  if(isFinite(P.imc)){c.push(`<span class="chip ${P.imc>=40?"warn":""}">IMC <b>${fmt(P.imc,1)}</b></span>`);}
+  $("stats").innerHTML=c.join("");
+  const a=[];
+  const trat=ind==="trat";
+  if(P.p<50) a.push(["warn","Peso <50 kg: riesgo de acumulación; considerar anti-Xa tras la 3ª-4ª dosis."]);
+  if(P.p>150||P.imc>=40) a.push(["warn","Obesidad (>150 kg o IMC ≥40): peso real sin tope y anti-Xa."]);
+  if(trat&&P.clcr<15) a.push(["crit","ClCr <15 mL/min o diálisis: HBPM y fondaparinux no recomendados. Usar HNF IV (sección al final)."]);
+  if(!isFinite(P.clcr)) a.push(["info","Falta función renal: introduce creatinina y edad, o un ClCr manual."]);
+  $("gAlerts").innerHTML=alertHTML(a);
+}
+
+let mon="ttpa";
+/* tablas de ajuste: lim = límite superior (excluido), b = bolo UI/kg, d = cambio UI/kg/h, stop = minutos de pausa, ok = en rango */
+const ADJ={
+  ttpa:{
+    hcuva:{obj:"Ratio TTPa 1,5-2,5 (protocolo HCUVA)",rows:[
+      {lim:1.2,txt:"< 1,2",b:80,d:4,re:"6 h"},{lim:1.5,txt:"1,2 – 1,49",b:40,d:2,re:"6 h"},{lim:2.5,txt:"1,5 – 2,5",ok:1,d:0,re:"24 h"},
+      {lim:3.0,txt:"2,5 – 3,0",d:-2,re:"6 h"},{lim:Infinity,txt:"> 3,0",d:-3,stop:60,re:"6 h"}]},
+    std:{obj:"Ratio TTPa 1,5-2,3",rows:[
+      {lim:1.2,txt:"< 1,2",b:80,d:4},{lim:1.5,txt:"1,2 – 1,49",b:40,d:2},{lim:2.3,txt:"1,5 – 2,29",ok:1,d:0},
+      {lim:3.0,txt:"2,3 – 3,0",d:-2},{lim:Infinity,txt:"> 3,0",d:-3,stop:60}]},
+    sca:{obj:"Ratio TTPa 1,5-2,0 (50-70 s)",rows:[
+      {lim:1.2,txt:"< 1,2",b:40,d:3},{lim:1.5,txt:"1,2 – 1,49",d:2},{lim:2.0,txt:"1,5 – 1,99",ok:1,d:0},
+      {lim:2.5,txt:"2,0 – 2,49",d:-1},{lim:3.0,txt:"2,5 – 3,0",d:-2,stop:30},{lim:Infinity,txt:"> 3,0",d:-3,stop:60}]},
+    hem:{obj:"Ratio TTPa 1,5-2,0",rows:[
+      {lim:1.2,txt:"< 1,2",d:3},{lim:1.5,txt:"1,2 – 1,49",d:2},{lim:2.0,txt:"1,5 – 1,99",ok:1,d:0},
+      {lim:2.5,txt:"2,0 – 2,49",d:-2},{lim:Infinity,txt:"≥ 2,5",d:-3,stop:60}]}
+  },
+  axa:{
+    std:{obj:"Anti-Xa 0,3-0,7 UI/mL",rows:[
+      {lim:0.2,txt:"< 0,20",b:40,d:3},{lim:0.3,txt:"0,20 – 0,29",d:2},{lim:0.71,txt:"0,30 – 0,70",ok:1,d:0},
+      {lim:0.91,txt:"0,71 – 0,90",d:-2},{lim:1.21,txt:"0,91 – 1,20",d:-3,stop:30},{lim:Infinity,txt:"> 1,20",d:-4,stop:60}]},
+    sca:{obj:"Anti-Xa 0,3-0,7 UI/mL",rows:[
+      {lim:0.2,txt:"< 0,20",b:30,d:2},{lim:0.3,txt:"0,20 – 0,29",d:1},{lim:0.71,txt:"0,30 – 0,70",ok:1,d:0},
+      {lim:0.91,txt:"0,71 – 0,90",d:-1},{lim:Infinity,txt:"> 0,90",d:-2,stop:60}]},
+    hem:{obj:"Anti-Xa 0,3-0,5 UI/mL",rows:[
+      {lim:0.2,txt:"< 0,20",d:2},{lim:0.3,txt:"0,20 – 0,29",d:1},{lim:0.51,txt:"0,30 – 0,50",ok:1,d:0},
+      {lim:0.71,txt:"0,51 – 0,70",d:-1},{lim:Infinity,txt:"> 0,70",d:-2,stop:60}]}
+  }
+};
+const kvHTML=a=>a.map(([k,v])=>`<dt>${k}</dt><dd>${v}</dd>`).join("");
+
+function hnf(P){
+  const nom=$("uInd").value, conc=+$("uConc").value, key=nom==="tev"?"std":nom;
+  const r=P.clcr;
+
+  /* por qué HNF */
+  const why=[];
+  if(r<15) why.push(["crit","ClCr <15 mL/min o diálisis: HNF IV es la anticoagulación parenteral de elección."]);
+  else if(r<30) why.push(["warn","ClCr 15-30 mL/min: HNF IV es preferible si se prevé procedimiento o alto riesgo hemorrágico. Si no, HBPM ajustada con anti-Xa."]);
+  why.push(["info","Elegir HNF cuando hace falta revertir rápido: vida media de 60-90 min, reversión completa con protamina y control con TTPa o anti-Xa. Indicada también en TEP de alto riesgo candidato a reperfusión, procedimientos inminentes y posHIC con válvula mecánica."]);
+  $("uWhy").innerHTML=alertHTML(why);
+
+  /* inicio */
+  $("hcDoseF").hidden=nom!=="hcuva";
+  let bolo,perf,txtB,txtP,obj;
+  let hcMode=null;
+  if(nom==="hcuva"){
+    const sel=$("hcDose").value;
+    const media=P.e>=70||r<60;
+    hcMode=sel==="auto"?(media?"media":"plena"):sel;
+    const udia=(hcMode==="plena"?500:300)*P.p;
+    bolo=hcMode==="plena"?5000:0; perf=udia/24;
+    txtB=hcMode==="plena"?"5.000 UI fijos (dosis plena)":"Sin bolo (dosis media)";
+    txtP=`${hcMode==="plena"?"500":"300"} UI/kg/día = ${fmt(udia)} UI/día`;
+    obj="Ratio TTPa 1,5-2,5";
+  } else if(nom==="tev"){bolo=80*P.p;perf=18*P.p;txtB="80 UI/kg";txtP="18 UI/kg/h";obj="Ratio TTPa 1,5-2,3 · anti-Xa 0,3-0,7";}
+  else if(nom==="sca"){bolo=Math.min(60*P.p,4000);perf=Math.min(12*P.p,1000);txtB="60 UI/kg, máx. 4.000";txtP="12 UI/kg/h, máx. 1.000";obj="Ratio TTPa 1,5-2,0 · anti-Xa 0,3-0,7";}
+  else {bolo=0;perf=Math.min(12*P.p,1000);txtB="Sin bolo";txtP="12 UI/kg/h, máx. 1.000";obj="Ratio TTPa 1,5-2,0 · anti-Xa 0,3-0,5";}
+  bolo=Math.round(bolo/100)*100; perf=nom==="hcuva"?Math.round(perf):Math.round(perf/10)*10;
+  $("uStart").innerHTML=`<div class="card c-peach"><div class="body">${target(bolo?`${fmt(bolo)} UI <small>bolo IV</small>`:`Sin bolo`,txtB)}${target(`${fmt(perf)} UI/h <small>= ${fmt(perf/conc,1)} mL/h</small>`,`Perfusión: ${txtP}`)}<dl class="kv">${kvHTML([["Bolo en volumen",bolo?`${fmt(bolo/5000,2)} mL de HNF al 5% (5.000 UI/mL)`:"—"],["Dosis diaria",`${fmt(perf*24)} UI/24 h`],["Objetivo",obj],["Primer control","A las 6 h"]])}</dl></div></div>`;
+  const sa=[];
+  if(nom==="tev") sa.push(["info","TEP de alto riesgo: valorar bolo y perfusión sin esperar a la imagen si la sospecha es alta. Tras trombólisis, reiniciar sin bolo cuando el TTPa sea <2 veces el control."]);
+  if(nom==="sca") sa.push(["info","Válvula mecánica: el mismo nivel de anticoagulación. Si la indicación es puente de AVK, solapar hasta INR en rango."]);
+  if(nom==="hem") sa.push(["warn","PosHIC con válvula mecánica: HNF IV sin bolo a las 1-2 semanas (antes si hemostasia confirmada y lesión estable) y paso a AVK. Los ACOD están contraindicados (RE-ALIGN). Protocolo PROT-MED-TROMB-HIC-001, apdo. 10.1."],
+    ["warn",`Riesgo hemorrágico muy alto (neurocirugía, cirugía cardiaca): opción escalonada, empezando con una dosis equivalente a profilaxis (≈ 600 UI/h = ${fmt(600/conc,1)} mL/h, unos 15.000 UI/24 h) y subiendo cada 6 h según anti-Xa hasta 0,3-0,5. Mismo protocolo, apdo. 7.3.`]);
+  if(nom==="hcuva"){
+    const why=[];if(P.e>=70)why.push(`${fmt(P.e)} años`);if(r<60)why.push(`ClCr ${fmt(r)} mL/min`);
+    sa.push([hcMode==="plena"?"ok":"warn",hcMode==="plena"
+      ?"Dosis plena: menor de 70 años con función renal normal. Bolo IV de 5.000 UI y perfusión a 500 UI/kg/día."
+      :`Dosis media: mayor de 70 años y/o función renal alterada${why.length?` (${why.join(", ")})`:""}. Sin bolo; perfusión a 300 UI/kg/día.`]);
+    if(+$("uConc").value!==50) sa.push(["warn","El protocolo HCUVA usa 25.000 UI en 500 mL de SSF 0,9% (50 UI/mL). Las tablas de mL/h de abajo asumen esa concentración."]);
+  }
+  $("uStartAl").innerHTML=alertHTML(sa);
+
+  /* tablas del protocolo HCUVA */
+  if(nom==="hcuva"){
+    const wts=[40,50,60,70,80,90,100];
+    const pw=Math.round(P.p);
+    const doseTab=(perDay,title)=>{
+      const list=wts.includes(pw)?wts:[...wts,pw].sort((a,b)=>a-b);
+      return `<div class="card c-peach"><div class="head"><h2 style="font-size:.95rem">${title}</h2><span class="brand">50 UI/mL</span></div><div class="body"><div class="tablewrap"><table><thead><tr><th>Peso (kg)</th><th>UI/día</th><th>UI/hora</th><th>mL/hora</th></tr></thead><tbody>`+
+      list.map(w=>{const d=perDay*w,h=d/24;return `<tr class="${w===pw?"best":""}"><td class="n">${w}${w===pw?'<span class="tag">paciente</span>':""}</td><td class="n">${fmt(d)}</td><td class="n">${fmt(Math.round(h))}</td><td class="n">${fmt(Math.round(h/50))}</td></tr>`;}).join("")+`</tbody></table></div></div></div>`;
+    };
+    const cw=[40,50,60,70,80,90,100], cwAll=cw.includes(pw)?cw:[...cw,pw].sort((a,b)=>a-b);
+    const conv=`<div class="card c-peach"><div class="head"><h2 style="font-size:.95rem">Conversión UI/kg/h → mL/h para el ajuste</h2><span class="brand">50 UI/mL</span></div><div class="body"><div class="tablewrap"><table><thead><tr><th>UI/kg/h</th><th>mL/kg/h</th>${cwAll.map(w=>`<th${w===pw?' style="color:var(--accent)"':""}>${w} kg</th>`).join("")}</tr></thead><tbody>`+
+      [4,3,2].map(u=>`<tr><td class="n"><b>${u}</b></td><td class="n">${fmt(u/50,2)}</td>${cwAll.map(w=>`<td class="n"${w===pw?' style="background:var(--accent-soft);font-weight:700"':""}>${fmt(Math.round(u*w/50))} mL/h</td>`).join("")}</tr>`).join("")+
+      `</tbody></table></div><p class="pearl">Ejemplo: subir 4 UI/kg/h en un paciente de ${fmt(P.p)} kg = +${fmt(4*P.p/50,1)} mL/h.</p></div></div>`;
+    $("uHcuva").innerHTML=`<div class="cards">${doseTab(500,"Dosis terapéutica plena · 500 UI/kg/día")}${doseTab(300,"Dosis terapéutica media · 300 UI/kg/día")}</div>${conv}`;
+  } else $("uHcuva").innerHTML="";
+
+  /* ajuste */
+  $("ratioLbl").textContent=mon==="ttpa"?"Ratio TTPa":"Anti-Xa (UI/mL)";
+  const T=ADJ[mon][mon==="axa"&&key==="hcuva"?"std":key], val=num("ratio"), ritmo=num("ritmo");
+  const hit=isFinite(val)?T.rows.findIndex(x=>val<x.lim):-1;
+  const bol=x=>{if(!x.b)return 0;let v=x.b*P.p;if(nom==="sca")v=Math.min(v,4000);return Math.round(v/100)*100;};
+  const nr=x=>Math.max(0,Math.round((ritmo+x.d*P.p)/10)*10);
+  const acc=x=>x.ok?"Sin cambios":[x.stop?`Parar ${x.stop} min`:"",x.b?`Bolo ${x.b} UI/kg (${fmt(bol(x))} UI)`:"",`${x.d>0?"+":"−"}${Math.abs(x.d)} UI/kg/h`].filter(Boolean).join("; ");
+  $("uTable").innerHTML=`<thead><tr><th>${mon==="ttpa"?"Ratio TTPa":"Anti-Xa"}</th><th>Acción</th><th>Nuevo ritmo</th><th>mL/h</th><th>Reevaluar</th></tr></thead><tbody>`+T.rows.map((x,i)=>`<tr class="${i===hit?"best":""}"><td class="n">${x.txt}</td><td>${acc(x)}</td><td class="n">${isFinite(ritmo)?fmt(nr(x))+" UI/h":"—"}</td><td class="n">${isFinite(ritmo)?fmt(nr(x)/conc,1):"—"}</td><td class="n">${x.re||(x.ok?"24 h*":"6 h")}</td></tr>`).join("")+"</tbody>";
+  const hc=nom==="hcuva"&&mon==="ttpa";
+  $("uTableNote").textContent=hc
+    ?`Objetivo: ${T.obj}. TTPa a las 6 h del inicio y tras cada cambio; en rango, reevaluar a las 24 h. Plaquetas cada 3-6 días. Si hay dudas en el ajuste, avisar al busca de Hematología.`
+    :`Objetivo: ${T.obj}. Control 6 h tras cada cambio; *con dos controles seguidos en rango, control diario.${nom==="tev"&&mon==="ttpa"?" Nomograma de Raschke (Ann Intern Med 1993).":" Nomograma orientativo: adáptalo al rango de tu laboratorio."}`;
+  if(hit>=0&&isFinite(ritmo)){
+    const x=T.rows[hit],n=nr(x);
+    const parts=[];
+    if(x.stop) parts.push(`Parar la perfusión ${x.stop} min.`);
+    if(x.b) parts.push(`Bolo de ${fmt(bol(x))} UI.`);
+    parts.push(x.ok?`Mantener ${fmt(ritmo)} UI/h.`:`Nuevo ritmo ${fmt(n)} UI/h = ${fmt(n/conc,1)} mL/h.`);
+    parts.push(`Siguiente control en ${x.re||"6 h"}.`);
+    $("uAdj").innerHTML=`<div class="alert ${x.ok?"ok":x.stop?"crit":"warn"}"><b>${x.ok?"En rango":"Ajuste"}:</b> ${parts.join(" ")}</div>`;
+  } else $("uAdj").innerHTML="";
+
+  /* profilaxis SC */
+  const obeso=P.p>120||P.imc>=40;
+  $("uProf").innerHTML=kvHTML([
+    ["Estándar","5.000 UI SC cada 8-12 h"],
+    ["Obesidad (IMC ≥40 o >120 kg)",`7.500 UI SC cada 8 h${obeso?" · aplicable a este paciente":""}`],
+    ["Función renal","Sin ajuste; opción de profilaxis con ClCr <30"],
+    ["Tratamiento SC (alternativa)",`333 UI/kg y después 250 UI/kg cada 12 h: ${fmt(Math.round(P.p*333/500)*500)} UI, luego ${fmt(Math.round(P.p*250/500)*500)} UI/12 h, sin control de TTPa (ensayo FIDO)`]
+  ]);
+
+  /* protamina */
+  const pr=num("pRitmo")||0, pb=num("pBolo")||0, pm=Math.max(0,num("pMin")||0);
+  const base=pr*2.5+pb, rest=base*Math.pow(0.5,pm/60);
+  const mg=Math.min(50,Math.round(rest/100*10)/10);
+  $("uProt").innerHTML=`<div class="card c-peach"><div class="body">${target(`${fmt(mg,1)} mg <small>de protamina IV</small>`,`Heparina activa estimada: ${fmt(Math.round(rest))} UI (perfusión de las últimas 2,5 h${pb?" + bolo":""}${pm?`, con semivida de 60 min tras ${fmt(pm)} min sin perfusión`:""}). 1 mg neutraliza 100 UI, máx. 50 mg.`)}<dl class="kv">${kvHTML([["Volumen",`${fmt(mg/10,1)} mL (10 mg/mL)`],["Administración","IV lenta, ≤5 mg/min (unos 10 min)"],["Control","TTPa a los 15 min y a las 2-8 h (posible rebote)"]])}</dl></div></div>`+alertHTML([
+    ["warn","Riesgo de anafilaxia, hipotensión e hipertensión pulmonar: más probable si ha recibido insulina NPH o protamina previa, alergia al pescado o vasectomía."],
+    ["info","HBPM: 1 mg por cada 1 mg de enoxaparina (o 100 UI anti-Xa) si la dosis fue hace <8 h; 0,5 mg si fue hace 8-12 h. Revierte solo un 60% del efecto anti-Xa. Fondaparinux no se revierte con protamina."]]);
+
+  /* cambios */
+  const sw=[
+    ["HNF IV → HBPM","Primera dosis de HBPM al parar la perfusión"],
+    ["HBPM → HNF IV","Iniciar perfusión sin bolo a la hora en que tocaba la siguiente dosis de HBPM"],
+    ["HNF IV → ACOD","Primera dosis de ACOD al parar la perfusión"],
+    ["ACOD → HNF IV","Iniciar a la hora en que tocaba la siguiente dosis del ACOD; el TTPa puede alargarse por el ACOD los primeros controles"],
+    ["HNF → AVK","Solapar al menos 5 días y hasta INR en rango en dos controles separados 24 h"],
+    ["Antes de cirugía o procedimiento","Parar 4-6 h antes; en cirugía mayor o neuroaxial, comprobar TTPa normal"],
+    ["Catéter epidural","Retirar 4-6 h tras la última dosis IV con TTPa normal; reiniciar ≥1 h después (ASRA 2018)"],
+    ["Después de la cirugía","Reiniciar sin bolo a las 12-24 h; 48-72 h si el riesgo hemorrágico es alto"],
+    ["PosHIC con válvula mecánica","HNF IV sin bolo a 1-2 semanas y puente a AVK (protocolo, apdo. 10.1)"]
+  ];
+  $("uSwitch").innerHTML="<thead><tr><th>Situación</th><th>Cómo hacerlo</th></tr></thead><tbody>"+sw.map(x=>`<tr><td><b>${x[0]}</b></td><td style="white-space:normal">${x[1]}</td></tr>`).join("")+"</tbody>";
+
+  /* vigilancia */
+  $("uVig").innerHTML=alertHTML([
+    ["info","Plaquetas basales y cada 2-3 días entre los días 4 y 14. Si caen >50% o aparece trombosis nueva, calcular 4T y, si es intermedio o alto, suspender toda heparina y pasar a argatrobán o fondaparinux."],
+    ["info","Resistencia a la heparina: más de 35.000 UI/24 h sin alcanzar rango. Medir anti-Xa (el TTPa engaña con factor VIII y fibrinógeno altos) y antitrombina."],
+    ["info","TTPa basal alargado (anticoagulante lúpico, déficit de factores, hepatopatía): controlar con anti-Xa desde el inicio."],
+    ["info","Potasio a partir del 5.º-7.º día: la heparina suprime la aldosterona y puede causar hiperpotasemia, sobre todo con ERC o IECA/ARA-II."],
+    ["info","Hemoglobina diaria. Si hay sangrado, parar la perfusión y valorar protamina según la heparina activa estimada (apartado 4)."]
+  ]);
+}
+
+function update(){
+  const P=pat();
+  $("legend").hidden=ind!=="trat";
+  if(!(P.p>0)){$("stats").innerHTML="";$("cards").innerHTML=`<div class="panel">Introduce el peso para ver las dosis.</div>`;return;}
+  stats(P);
+  if(!isFinite(P.clcr)) P.clcr=999;
+  $("cards").innerHTML=enox(P)+tinza(P)+bemi(P)+fonda(P);
+  hnf(P);
+}
+
+["peso","talla","edad","cr","clcrMan","uInd","uConc","hcDose","ratio","ritmo","pRitmo","pBolo","pMin"].forEach(id=>{$(id).addEventListener("input",update);$(id).addEventListener("change",update);});
+function segBind(id,cb){$(id).querySelectorAll("button").forEach(b=>b.addEventListener("click",()=>{$(id).querySelectorAll("button").forEach(x=>x.setAttribute("aria-pressed",x===b));cb(b.dataset.v);update();}));}
+segBind("indSeg",v=>ind=v);
+function setMode(m){
+  $("pickH").setAttribute("aria-selected",m==="H");$("pickU").setAttribute("aria-selected",m==="U");
+  $("secH").hidden=m!=="H";$("hnf").hidden=m!=="U";
+  try{localStorage.setItem("hep-mode",m);}catch(e){}
+}
+$("pickH").onclick=()=>setMode("H"); $("pickU").onclick=()=>setMode("U");
+try{const m=localStorage.getItem("hep-mode");if(m==="U")setMode("U");}catch(e){} segBind("monSeg",v=>{mon=v;$("ratio").value=v==="axa"?"0.25":"1.4";});
+$("sexV").onclick=()=>{sexo="V";$("sexV").setAttribute("aria-pressed","true");$("sexM").setAttribute("aria-pressed","false");update();};
+$("sexM").onclick=()=>{sexo="M";$("sexM").setAttribute("aria-pressed","true");$("sexV").setAttribute("aria-pressed","false");update();};
+update();
+})();
+</script>
